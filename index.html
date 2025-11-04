@@ -2,116 +2,72 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>ระบบถ่ายชุดภาพใบหน้า (Dataset Collector)</title>
+<title>เก็บภาพใบหน้าผ่านเว็บ</title>
 <style>
-  body { font-family: sans-serif; text-align: center; margin-top: 20px; transition: background 0.3s; }
-  video { width: 320px; border: 3px solid #333; margin-top: 10px; }
-  #step { font-size: 22px; margin-top: 20px; font-weight: bold; }
-  #progress { margin-top: 10px; font-size: 18px; }
-  input, button { padding: 8px 12px; font-size: 18px; margin-top: 10px; }
+  body { font-family: sans-serif; text-align: center; margin-top: 30px; }
+  video { width: 350px; border: 3px solid #333; border-radius: 10px; }
+  input, button { font-size: 20px; padding: 10px 18px; margin-top: 15px; }
 </style>
 </head>
 <body>
 
-<h2>📸 ระบบเก็บข้อมูลใบหน้าเพื่อสร้างโมเดล</h2>
+<h2>📸 ถ่ายภาพใบหน้า (Dataset Collector)</h2>
 
-<input id="username" type="text" placeholder="กรอกชื่อก่อนเริ่ม" />
-<button id="startBtn">เริ่มถ่าย</button>
+<input id="username" type="text" placeholder="ใส่ชื่อผู้ถูกถ่าย">
+<br>
+<button id="startBtn">เริ่มบันทึกภาพ</button>
 
-<div id="step"></div>
+<br><br>
 <video id="video" autoplay playsinline></video>
-<div id="progress"></div>
-
-<!-- ✅ โหลด Mediapipe ที่ถูกต้อง -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<div id="status"></div>
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient(
-  "https://avhgcaymtekqopsrkntx.supabase.co",
+  "https://avhgcaymtekqopsrkntx.supabase.co", 
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2aGdjYXltdGVrcW9wc3JrbnR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODk1NzgsImV4cCI6MjA3Nzg2NTU3OH0.oH1dILXQ_P4rvpA6x74wtv3TsO9yLxZLcBigOAzRD3s"
 );
 
+// ✅ Login anonymous เพื่ออนุญาตอัปโหลด
 await supabase.auth.signInAnonymously();
 
+// ✅ เปิดกล้อง
 const video = document.getElementById("video");
+navigator.mediaDevices.getUserMedia({ video: true }).then(stream => video.srcObject = stream);
 
-// ✅ ใช้ camera_utils ให้ Mediapipe ประมวลผลจากกล้อง
-const camera = new Camera(video, {
-  onFrame: async () => {
-    await detector.send({image: video});
-  },
-  width: 320,
-  height: 240
-});
-camera.start();
+function captureAndUpload(name, index){
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
 
-// ✅ ตัวนี้คือ constructor ที่ถูกต้อง!!
-const detector = new faceDetection.FaceDetection({
-  model: "short",
-  minDetectionConfidence: 0.7
-});
+  canvas.toBlob(async blob => {
+    await supabase.storage.from("face_dataset")
+      .upload(`${name}/${index}.jpg`, blob, { upsert: true });
 
-const steps = [
-  "หันหน้าไปทางซ้ายช้าๆ",
-  "หันหน้าไปทางขวาช้าๆ",
-  "ค่อยๆเงยหน้า",
-  "กลับมาหน้าตรงปกติ"
-];
-const colors = ["#FFD1D1","#D1E8FF","#E2FFD1","#FFF3B0"];
-
-let currentStep = 0, count = 0;
-const totalPerStep = 25;
-const total = totalPerStep * steps.length;
-
-async function uploadToSupabase(folder, filename, blob) {
-  await supabase.storage.from("face_dataset")
-    .upload(`${folder}/${filename}.jpg`, blob, { upsert: true });
+    document.getElementById("status").innerText = `📤 อัปโหลดแล้ว: ${index}`;
+  }, "image/jpeg", 0.9);
 }
 
-async function startCapture(){
+document.getElementById("startBtn").addEventListener("click", async () => {
   const name = document.getElementById("username").value.trim();
-  if (!name) return alert("⚠️ กรุณากรอกชื่อ");
+  if(!name) return alert("⚠️ ใส่ชื่อก่อน");
 
-  alert("เริ่มถ่ายแล้ว");
+  alert("ระบบจะถ่ายภาพ 30 รูป (ใช้เวลาประมาณ 15 วินาที)");
 
-  let timer = setInterval(async () => {
-    document.body.style.backgroundColor = colors[currentStep];
-    document.getElementById("step").innerHTML = steps[currentStep];
-    document.getElementById("progress").innerHTML = `${count+1}/${total}`;
+  let index = 1;
+  const total = 30;
 
-    const results = detector.getDetections();
-    if(results?.detections){
-      const box = results.detections[0].locationData.relativeBoundingBox;
-      const w = video.videoWidth, h = video.videoHeight;
-
-      const x = box.xmin * w;
-      const y = box.ymin * h;
-      const width = box.width * w;
-      const height = box.height * h;
-
-      let canvas = document.createElement("canvas");
-      canvas.width = 160; canvas.height = 160;
-      canvas.getContext("2d").drawImage(video, x, y, width, height, 0, 0, 160, 160);
-
-      canvas.toBlob(blob =>
-        uploadToSupabase(name, String(count+1).padStart(3,"0"), blob), "image/jpeg", 0.9);
-    }
-
-    count++;
-    if(count % totalPerStep === 0 && currentStep < steps.length-1) currentStep++;
-    if(count >= total){
+  const timer = setInterval(() => {
+    captureAndUpload(name, String(index).padStart(3, "0"));
+    index++;
+    if(index > total){
       clearInterval(timer);
-      document.body.style.backgroundColor = "white";
-      alert(`✅ เสร็จแล้ว! เก็บใน face_dataset/${name}`);
+      alert("✅ ถ่ายครบแล้ว!");
     }
   }, 500);
-}
-
-// ✅ ผูกแบบถูกต้อง ไม่ใช้ onclick แล้ว
-document.getElementById("startBtn").addEventListener("click", startCapture);
+});
 </script>
 
 </body>
