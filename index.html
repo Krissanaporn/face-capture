@@ -62,7 +62,7 @@ async function uploadToSupabase(folder, filename, blob) {
   if (error) console.log("❌ Upload failed:", error.message);
 }
 
-async function startCapture(){
+window.startCapture = async function startCapture(){
   const name = document.getElementById("username").value.trim();
   if (!name){
     alert("⚠️ กรุณากรอกชื่อก่อน");
