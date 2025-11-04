@@ -33,83 +33,81 @@ const supabase = createClient(
 
 await supabase.auth.signInAnonymously();
 
+// เปิดกล้อง
 const video = document.getElementById("video");
 navigator.mediaDevices.getUserMedia({ video: true }).then(stream => video.srcObject = stream);
 
+// ขั้นตอนสอนท่าทาง
 const steps = [
   "หันหน้าไปทาง **ซ้าย** ช้าๆ",
   "หันหน้าไปทาง **ขวา** ช้าๆ",
   "ค่อยๆ **เงยหน้า**",
   "กลับมา **หน้าตรงปกติ**"
 ];
-
 const colors = ["#FFD1D1","#D1E8FF","#E2FFD1","#FFF3B0"];
-let currentStep = 0;
-let count = 0;
+let currentStep = 0, count = 0;
 const totalPerStep = 25;
 const total = totalPerStep * steps.length;
 
-// ✅ โหลด model ของ Mediapipe อย่างถูกต้อง
+// ✅ โหลดโมเดลตรวจจับหน้า ถูกต้องตาม API ล่าสุด
 const vision = await FilesetResolver.forVisionTasks(
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
 );
+
 const detector = await FaceDetector.createFromOptions(vision, {
-  modelAssetPath: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/face_detector/face_detector.tflite",
+  baseOptions: {
+    modelAssetPath:
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/face_detector/face_detector.tflite"
+  },
   minDetectionConfidence: 0.6
 });
 
+// ✅ ฟังก์ชันอัปโหลดรูป
 async function uploadToSupabase(folder, filename, blob) {
-  const { error } = await supabase
-    .storage
-    .from("face_dataset")
+  await supabase.storage.from("face_dataset")
     .upload(`${folder}/${filename}.jpg`, blob, { upsert: true });
-
-  if (error) console.log("❌ Upload failed:", error.message);
 }
 
-window.startCapture = async function startCapture(){
+// ✅ ฟังก์ชันเริ่มถ่ายรูป (ผูกกับ window)
+window.startCapture = async function startCapture() {
   const name = document.getElementById("username").value.trim();
-  if (!name){
-    alert("⚠️ กรุณากรอกชื่อก่อน");
-    return;
-  }
+  if (!name) return alert("⚠️ กรุณากรอกชื่อก่อนเริ่ม");
 
   alert("เริ่มถ่ายแล้ว ทำตามข้อความบนจอทีละท่า 😊");
 
-  let timer = setInterval(async ()=>{
+  let timer = setInterval(async () => {
     document.body.style.backgroundColor = colors[currentStep];
     document.getElementById("step").innerHTML = `ขั้นตอน: ${steps[currentStep]}`;
     document.getElementById("progress").innerHTML = `📸 ${count+1}/${total}`;
 
-    const detections = detector.detect(video);
-    if (detections.detections.length > 0) {
-      let b = detections.detections[0].boundingBox;
-      let canvas = document.createElement("canvas");
+    const result = await detector.detect(video);
+
+    if (result.detections.length > 0) {
+      const b = result.detections[0].boundingBox;
+
+      const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext("2d").drawImage(video, 0, 0);
 
-      let face = document.createElement("canvas");
+      const face = document.createElement("canvas");
       face.width = 160;
       face.height = 160;
       face.getContext("2d").drawImage(canvas, b.originX, b.originY, b.width, b.height, 0, 0, 160, 160);
 
-      face.toBlob(blob => uploadToSupabase(name, String(count+1).padStart(3,"0"), blob), "image/jpeg", 0.9);
+      face.toBlob(blob =>
+        uploadToSupabase(name, String(count+1).padStart(3,"0"), blob)
+      , "image/jpeg", 0.9);
     }
 
     count++;
-
-    if (count % totalPerStep === 0 && currentStep < steps.length - 1){
-      currentStep++;
-    }
-
-    if(count >= total){
+    if (count % totalPerStep === 0 && currentStep < steps.length-1) currentStep++;
+    if (count >= total) {
       clearInterval(timer);
       document.body.style.backgroundColor = "white";
       document.getElementById("step").innerHTML = "✅ เสร็จแล้ว!";
-      alert("✅ อัปโหลดครบทุกรูปแล้ว\nเก็บไว้ที่ bucket: face_dataset/" + name);
+      alert(`อัปโหลดครบแล้ว\nเก็บใน bucket: face_dataset/${name}`);
     }
-
   }, 500);
 }
 </script>
