@@ -43,18 +43,21 @@ async function captureAndUpload(name, index){
   canvas.getContext("2d").drawImage(video, 0, 0);
 
   canvas.toBlob(async blob => {
-    const { error } = await supabase.storage.from("face_dataset")
-      .upload(`${name}/${index}.jpg`, blob, { upsert: true });
+
+    const { error } = await supabase.storage
+      .from("face_dataset")            // ✅ bucket name
+      .upload(`${name}/${index}.jpg`,  // ✅ path ใน bucket
+              blob, { upsert: true });
 
     if(error){
       console.log("❌ Upload error:", error);
-      document.getElementById("status").innerText = "❌ Upload failed: " + error.message;
+      document.getElementById("status").innerText = "❌ " + error.message;
     } else {
       document.getElementById("status").innerText = `📤 อัปโหลดแล้ว: ${index}`;
     }
+
   }, "image/jpeg", 0.9);
 }
-
 document.getElementById("startBtn").addEventListener("click", async () => {
   const name = document.getElementById("username").value.trim();
   if(!name) return alert("⚠️ ใส่ชื่อก่อน");
