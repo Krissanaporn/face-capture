@@ -28,7 +28,7 @@
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const supabase = createClient("YOUR_SUPABASE_URL", "YOUR_SUPABASE_ANON_KEY");
+const supabase = createClient("https://avhgcaymtekqopsrkntx.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2aGdjYXltdGVrcW9wc3JrbnR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODk1NzgsImV4cCI6MjA3Nzg2NTU3OH0.oH1dILXQ_P4rvpA6x74wtv3TsO9yLxZLcBigOAzRD3s");
 
 // Login แบบไม่ต้องสมัคร → เพื่อให้มีสิทธิ์ upload
 await supabase.auth.signInAnonymously();
