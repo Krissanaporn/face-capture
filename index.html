@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>ถ่ายภาพใบหน้า 100 รูป</title>
+<style>
+  body { display:flex; flex-direction:column; align-items:center; padding-top:30px; transition:background-color .5s; }
+  video { width:320px; height:240px; border:2px solid #333; }
+  button { margin-top:15px; padding:10px 20px; }
+</style>
+</head>
+<body>
+
+<h3>📸 ถ่ายภาพอัตโนมัติ 100 รูป (พื้นหลังเปลี่ยน)</h3>
+<video id="video" autoplay></video>
+<div id="progress">พร้อมถ่าย</div>
+<button onclick="startCapture()">เริ่ม</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<script>
+const colors = ["#FFFFFF","#FFD1D1","#D1E8FF","#E2FFD1","#FFF3B0","#E8D9FF","#000000"];
+navigator.mediaDevices.getUserMedia({ video:true }).then(s => video.srcObject = s);
+
+function startCapture(){
+  let total = 100, count = 0;
+  let zip = new JSZip();
+  let folderName = "capture_" + new Date().toISOString().replace(/[:.]/g, "-");
+  let folder = zip.folder(folderName);
+  let colorIndex = 0;
+
+  let timer = setInterval(()=>{
+    document.body.style.backgroundColor = colors[colorIndex];
+    colorIndex = (colorIndex + 1) % colors.length;
+
+    let c = document.createElement('canvas');
+    c.width = video.videoWidth;
+    c.height = video.videoHeight;
+    c.getContext('2d').drawImage(video, 0, 0);
+    let img = c.toDataURL("image/jpeg").split(",")[1];
+    folder.file(`${(count+1).toString().padStart(3,'0')}.jpg`, img, {base64:true});
+
+    count++;
+    progress.innerText = `กำลังถ่าย ${count}/${total}`;
+
+    if(count >= total){
+      clearInterval(timer);
+      zip.generateAsync({type:"blob"}).then(b=>{
+        saveAs(b, folderName + ".zip");
+        progress.innerText = "✅ เสร็จแล้ว ดาวน์โหลดได้เลย";
+      });
+    }
+  }, 500);
+}
+</script>
+
+</body>
+</html>
