@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Face Dataset Collector</title>
+<style>
+  body { font-family: sans-serif; text-align: center; padding-top: 20px; }
+  video { width: 320px; border: 2px solid #000; }
+  #step, #progress { margin-top: 10px; font-size: 20px; }
+</style>
+</head>
+<body>
+
+<h2>📸 ระบบเก็บภาพใบหน้า</h2>
+
+<input id="username" type="text" placeholder="ชื่อผู้ถูกถ่าย" />
+<button id="startBtn">เริ่มถ่าย</button>
+
+<div id="step"></div>
+<video id="video" autoplay playsinline></video>
+<div id="progress"></div>
+
+<!-- ✅ รุ่น Mediapipe ที่ถูกต้อง -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const supabase = createClient(
+  "https://avhgcaymtekqopsrkntx.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2aGdjYXltdGVrcW9wc3JrbnR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODk1NzgsImV4cCI6MjA3Nzg2NTU3OH0.oH1dILXQ_P4rvpA6x74wtv3TsO9yLxZLcBigOAzRD3s"
+);
+
+await supabase.auth.signInAnonymously();
+
+const video = document.getElementById("video");
+const detector = new faceDetection.FaceDetection({
+  model: "short",
+  minDetectionConfidence: 0.7
+});
+
+const camera = new Camera(video, {
+  onFrame: async () => { await detector.send({image: video}); },
+  width: 320, height: 240
+});
+camera.start();
+
+const steps = ["ซ้าย", "ขวา", "เงยหน้า", "หน้าตรง"];
+let stepIndex = 0, count = 0;
+
+async function upload(name, idx, blob){
+  await supabase.storage.from("face_dataset").upload(`${name}/${idx}.jpg`, blob, { upsert: true });
+}
+
+async function startCapture(){
+  const name = username.value.trim();
+  if(!name) return alert("กรอกชื่อก่อน");
+
+  alert("เริ่มถ่ายแล้ว");
+  const total = 100;
+
+  const timer = setInterval(()=>{
+    document.getElementById("step").innerText = `หันหน้า: ${steps[stepIndex]}`;
+    document.getElementById("progress").innerText = `${count+1}/100`;
+
+    const r = detector.getDetections();
+    if(r?.detections){
+      const b = r.detections[0].locationData.relativeBoundingBox;
+      const w = video.videoWidth, h = video.videoHeight;
+      const x = b.xmin*w, y=b.ymin*h, bw=b.width*w, bh=b.height*h;
+
+      const c = document.createElement("canvas");
+      c.width = 160; c.height = 160;
+      c.getContext("2d").drawImage(video,x,y,bw,bh,0,0,160,160);
+      c.toBlob(blob=>upload(name,count+1,blob),"image/jpeg",0.9);
+    }
+
+    count++;
+    if(count % 25 === 0) stepIndex++;
+    if(count >= total){
+      clearInterval(timer);
+      alert("✅ เสร็จสิ้น");
+    }
+  }, 500);
+}
+
+document.getElementById("startBtn").addEventListener("click", startCapture);
+</script>
+
+</body>
+</html>
