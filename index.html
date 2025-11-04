@@ -36,17 +36,22 @@ await supabase.auth.signInAnonymously();
 const video = document.getElementById("video");
 navigator.mediaDevices.getUserMedia({ video: true }).then(stream => video.srcObject = stream);
 
-function captureAndUpload(name, index){
+async function captureAndUpload(name, index){
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext("2d").drawImage(video, 0, 0);
 
   canvas.toBlob(async blob => {
-    await supabase.storage.from("face_dataset")
+    const { error } = await supabase.storage.from("face_dataset")
       .upload(`${name}/${index}.jpg`, blob, { upsert: true });
 
-    document.getElementById("status").innerText = `📤 อัปโหลดแล้ว: ${index}`;
+    if(error){
+      console.log("❌ Upload error:", error);
+      document.getElementById("status").innerText = "❌ Upload failed: " + error.message;
+    } else {
+      document.getElementById("status").innerText = `📤 อัปโหลดแล้ว: ${index}`;
+    }
   }, "image/jpeg", 0.9);
 }
 
