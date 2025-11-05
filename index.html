@@ -2,65 +2,74 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>เก็บภาพใบหน้าผ่านเว็บ</title>
+<title>📸 Face Dataset Collector</title>
 <style>
   body { font-family: sans-serif; text-align: center; margin-top: 30px; }
-  video { width: 350px; border: 3px solid #333; border-radius: 10px; }
-  input, button { font-size: 20px; padding: 10px 18px; margin-top: 15px; }
+  video { width: 360px; border: 3px solid #333; border-radius: 10px; }
+  input, button { font-size: 18px; padding: 10px 18px; margin-top: 15px; }
+  #status { margin-top: 15px; font-size: 18px; }
 </style>
 </head>
 <body>
 
-<h2>📸 ถ่ายภาพใบหน้า (Dataset Collector)</h2>
+<h2>📸 ระบบเก็บภาพใบหน้า (Dataset Collector)</h2>
 
-<input id="username" type="text" placeholder="ใส่ชื่อผู้ถูกถ่าย">
+<input id="username" type="text" placeholder="ใส่ชื่อผู้ถูกถ่าย เช่น Ja">
 <br>
-<button id="startBtn">เริ่มบันทึกภาพ</button>
+<button id="startBtn">เริ่มถ่ายและบันทึก</button>
 
 <br><br>
 <video id="video" autoplay playsinline></video>
-<div id="status"></div>
+<div id="status">พร้อมใช้งาน ✅</div>
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ✅ สร้าง client
 const supabase = createClient(
   "https://avhgcaymtekqopsrkntx.supabase.co", 
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2aGdjYXltdGVrcW9wc3JrbnR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODk1NzgsImV4cCI6MjA3Nzg2NTU3OH0.oH1dILXQ_P4rvpA6x74wtv3TsO9yLxZLcBigOAzRD3s"
 );
 
-// ✅ Login anonymous เพื่ออนุญาตอัปโหลด
-await supabase.auth.signInAnonymously();
+// ✅ ensure anonymous session
+let { data: sessionData } = await supabase.auth.getSession();
+if (!sessionData.session) {
+  await supabase.auth.signInAnonymously();
+}
 
 // ✅ เปิดกล้อง
 const video = document.getElementById("video");
-navigator.mediaDevices.getUserMedia({ video: true }).then(stream => video.srcObject = stream);
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => video.srcObject = stream);
 
+// ✅ ฟังก์ชัน capture & upload
 async function captureAndUpload(name, index){
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext("2d").drawImage(video, 0, 0);
 
-  canvas.toBlob(async blob => {
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
 
-    const { data, error } = await supabase.storage
-      .from("face_dataset")
-      .upload(`${name}/${index}.jpg`, blob, { upsert: true });
-    
-    if (error) {
-      console.error("UPLOAD ERROR:", error);
-      alert("UPLOAD ERROR: " + error.message);
-    } else {
-      console.log("✅ UPLOADED:", data);
-    }
-  }, "image/jpeg", 0.9);
+  const filePath = `${name}/${index}.jpg`;
+
+  const { error } = await supabase.storage
+    .from("face_dataset")
+    .upload(filePath, blob, { upsert: true });
+
+  if (error) {
+    document.getElementById("status").innerHTML = `❌ ERR: ${error.message}`;
+  } else {
+    document.getElementById("status").innerHTML = `✅ อัปโหลดรูปที่ ${index}`;
+  }
 }
-document.getElementById("startBtn").addEventListener("click", async () => {
-  const name = document.getElementById("username").value.trim();
-  if(!name) return alert("⚠️ ใส่ชื่อก่อน");
 
-  alert("ระบบจะถ่ายภาพ 30 รูป (ใช้เวลาประมาณ 15 วินาที)");
+// ✅ ปุ่มเริ่มถ่าย
+document.getElementById("startBtn").addEventListener("click", () => {
+  const name = document.getElementById("username").value.trim();
+  if(!name) return alert("⚠️ กรุณาใส่ชื่อก่อน");
+
+  alert("เริ่มถ่าย 30 รูป ใช้เวลาประมาณ 15 วินาที");
 
   let index = 1;
   const total = 30;
@@ -71,6 +80,7 @@ document.getElementById("startBtn").addEventListener("click", async () => {
     if(index > total){
       clearInterval(timer);
       alert("✅ ถ่ายครบแล้ว!");
+      document.getElementById("status").innerHTML = "✅ เสร็จสิ้น";
     }
   }, 500);
 });
