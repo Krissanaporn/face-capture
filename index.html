@@ -53,7 +53,7 @@ async function captureAndUpload(name, index){
 
   const path = `${name}/${index}.jpg`;
 
-  const { error } = await supabase.storage.from("face-capture")
+  const { error } = await supabase.storage.from("face_dataset")
     .upload(path, blob, { upsert: true });
 
   if (error) {
