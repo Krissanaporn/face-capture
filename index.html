@@ -53,13 +53,13 @@ async function captureAndUpload(name, index){
 
   const path = `${name}/${index}.jpg`;
 
-  const { error } = await supabase.storage.from("face_dataset")
+  const { error } = await supabase.storage.from("dataset")
     .upload(path, blob, { upsert: true });
 
   if (error) {
     document.getElementById("status").innerHTML = `❌ อัปโหลดผิดพลาด: ${error.message}`;
   } else {
-    const publicUrl = `https://avhgcaymtekqopsrkntx.supabase.co/storage/v1/object/public/face_dataset/${path}`;
+    const publicUrl = `https://avhgcaymtekqopsrkntx.supabase.co/storage/v1/object/public/dataset/${path}`;
     document.getElementById("status").innerHTML = `✅ อัปโหลดรูปที่ ${index} <br> ${publicUrl}`;
   }
 }
