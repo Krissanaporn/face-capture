@@ -32,8 +32,8 @@ const supabase = createClient(
 );
 
 // ✅ ensure anonymous session
-let { data: sessionData } = await supabase.auth.getSession();
-if (!sessionData.session) {
+let { data: session } = await supabase.auth.getSession();
+if (!session.session) {
   await supabase.auth.signInAnonymously();
 }
 
@@ -51,16 +51,17 @@ async function captureAndUpload(name, index){
 
   const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
 
-  const filePath = `${name}/${index}.jpg`;
+  const path = `${name}/${index}.jpg`;
 
   const { error } = await supabase.storage
     .from("face_dataset")
-    .upload(filePath, blob, { upsert: true });
+    .upload(path, blob, { upsert: true });
 
   if (error) {
-    document.getElementById("status").innerHTML = `❌ ERR: ${error.message}`;
+    document.getElementById("status").innerHTML = `❌ อัปโหลดผิดพลาด: ${error.message}`;
   } else {
-    document.getElementById("status").innerHTML = `✅ อัปโหลดรูปที่ ${index}`;
+    const publicUrl = `https://avhgcaymtekqopsrkntx.supabase.co/storage/v1/object/public/face_dataset/${path}`;
+    document.getElementById("status").innerHTML = `✅ อัปโหลดรูปที่ ${index} <br> ${publicUrl}`;
   }
 }
 
