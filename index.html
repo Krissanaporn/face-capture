@@ -4,85 +4,101 @@
 <meta charset="UTF-8">
 <title>📸 Face Dataset Collector</title>
 <style>
-  body { font-family: sans-serif; text-align: center; margin-top: 30px; }
-  video { width: 360px; border: 3px solid #333; border-radius: 10px; }
-  input, button { font-size: 18px; padding: 10px 18px; margin-top: 15px; }
-  #status { margin-top: 15px; font-size: 18px; }
+  body { font-family: sans-serif; text-align: center; padding-top: 20px; transition: background 0.3s; }
+  video { width: 360px; border: 3px solid #333; border-radius: 10px; margin-top: 10px; }
+  input, button { font-size: 18px; padding: 10px 14px; margin-top: 12px; }
+  #step { margin-top: 18px; font-size: 22px; font-weight: bold; }
+  #progress { margin-top: 8px; font-size: 18px; }
 </style>
 </head>
 <body>
 
-<h2>📸 ระบบเก็บภาพใบหน้า (Dataset Collector)</h2>
+<h2>📸 ระบบเก็บชุดภาพใบหน้า (Dataset Collector)</h2>
 
-<input id="username" type="text" placeholder="ใส่ชื่อผู้ถูกถ่าย เช่น Ja">
+<input id="username" type="text" placeholder="ใส่ชื่อ เช่น Ja">
 <br>
-<button id="startBtn">เริ่มถ่ายและบันทึก</button>
+<button id="startBtn">เริ่มถ่ายข้อมูล</button>
 
-<br><br>
+<div id="step">รอเริ่ม...</div>
 <video id="video" autoplay playsinline></video>
-<div id="status">พร้อมใช้งาน ✅</div>
+<div id="progress"></div>
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// ✅ สร้าง client
+// ✅ Supabase client
 const supabase = createClient(
   "https://avhgcaymtekqopsrkntx.supabase.co", 
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2aGdjYXltdGVrcW9wc3JrbnR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODk1NzgsImV4cCI6MjA3Nzg2NTU3OH0.oH1dILXQ_P4rvpA6x74wtv3TsO9yLxZLcBigOAzRD3s"
 );
+await supabase.auth.signInAnonymously();
 
-// ✅ ensure anonymous session
-let { data: session } = await supabase.auth.getSession();
-if (!session.session) {
-  await supabase.auth.signInAnonymously();
-}
-
-// ✅ เปิดกล้อง
 const video = document.getElementById("video");
 navigator.mediaDevices.getUserMedia({ video: true })
   .then(stream => video.srcObject = stream);
 
-// ✅ ฟังก์ชัน capture & upload
-async function captureAndUpload(name, index){
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video, 0, 0);
+// ✅ Step text
+const steps = [
+  "➡️ หันหน้าไปทาง **ซ้าย** ช้าๆ",
+  "⬅️ หันหน้าไปทาง **ขวา** ช้าๆ",
+  "⬆️ ค่อยๆ **เงยหน้า**",
+  "⏺ กลับมา **หน้าตรง**"
+];
 
-  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+// ✅ พื้นหลังเข้มหมุนเร็ว
+const bgColors = [
+  "#1A1A1A",
+  "#3D0066",
+  "#003366",
+  "#004225",
+  "#660000"
+];
 
-  const path = `${name}/${index}.jpg`;
+let colorIndex = 0;
+setInterval(() => {
+  document.body.style.backgroundColor = bgColors[colorIndex];
+  colorIndex = (colorIndex + 1) % bgColors.length;
+}, 1500);
 
-  const { error } = await supabase.storage.from("dataset")
-    .upload(path, blob, { upsert: true });
+// ✅ 300 รูป = 75 รูปต่อท่า
+let count = 0;
+let stepIndex = 0;
+const perStep = 75;
 
-  if (error) {
-    document.getElementById("status").innerHTML = `❌ อัปโหลดผิดพลาด: ${error.message}`;
-  } else {
-    const publicUrl = `https://avhgcaymtekqopsrkntx.supabase.co/storage/v1/object/public/dataset/${path}`;
-    document.getElementById("status").innerHTML = `✅ อัปโหลดรูปที่ ${index} <br> ${publicUrl}`;
-  }
-}
-
-// ✅ ปุ่มเริ่มถ่าย
 document.getElementById("startBtn").addEventListener("click", () => {
   const name = document.getElementById("username").value.trim();
-  if(!name) return alert("⚠️ กรุณาใส่ชื่อก่อน");
+  if (!name) return alert("⚠️ กรุณาใส่ชื่อก่อน");
 
-  alert("เริ่มถ่าย 30 รูป ใช้เวลาประมาณ 15 วินาที");
-
-  let index = 1;
-  const total = 30;
+  alert("เริ่มเก็บข้อมูล 300 รูป ใช้เวลาประมาณ 1 นาที");
 
   const timer = setInterval(() => {
-    captureAndUpload(name, String(index).padStart(3, "0"));
-    index++;
-    if(index > total){
+
+    document.getElementById("step").innerHTML = steps[stepIndex];
+    document.getElementById("progress").innerHTML = `${count+1}/300`;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 240;
+    canvas.height = 240;
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+      const fileName = String(count+1).padStart(3, "0");
+      supabase.storage.from("dataset")
+        .upload(`${name}/${fileName}.jpg`, blob, { upsert: true });
+    }, "image/jpeg", 0.85);
+
+    count++;
+
+    if(count % perStep === 0 && stepIndex < 3) stepIndex++;
+
+    if(count >= 300){
       clearInterval(timer);
-      alert("✅ ถ่ายครบแล้ว!");
-      document.getElementById("status").innerHTML = "✅ เสร็จสิ้น";
+      document.body.style.backgroundColor = "white";
+      document.getElementById("step").innerHTML = "✅ เสร็จสิ้น";
+      alert(`✅ เสร็จเรียบร้อย`);
     }
-  }, 500);
+
+  }, 200); // ถ่ายเร็วขึ้น!
 });
 </script>
 
