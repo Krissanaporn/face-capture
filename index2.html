@@ -2,91 +2,695 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>Face Dataset Collector</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portrait Painter — แปลงภาพเป็นสไตล์วาด</title>
 <style>
-  body { font-family: sans-serif; text-align: center; padding-top: 20px; }
-  video { width: 320px; border: 2px solid #000; }
-  #step, #progress { margin-top: 10px; font-size: 20px; }
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:    #1a1410;
+    --canvas: #f5f0e8;
+    --cream:  #ede6d6;
+    --ochre:  #c4843c;
+    --sienna: #8b3e1e;
+    --sage:   #6b7c5e;
+    --warm-gray: #9a8f80;
+    --paper:  #faf7f2;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 1.4rem 2rem 1rem;
+    border-bottom: 1.5px solid var(--cream);
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  header span {
+    font-size: 0.78rem;
+    color: var(--warm-gray);
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ── Layout ── */
+  main {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    height: calc(100vh - 57px);
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    background: var(--canvas);
+    border-right: 1.5px solid var(--cream);
+    padding: 1.6rem 1.4rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+  }
+
+  .upload-zone {
+    border: 1.5px dashed var(--ochre);
+    border-radius: 6px;
+    padding: 1.4rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background .2s;
+    background: transparent;
+  }
+  .upload-zone:hover { background: rgba(196,132,60,.07); }
+  .upload-zone svg { margin-bottom: .5rem; opacity: .55; }
+  .upload-zone p { font-size: .8rem; color: var(--warm-gray); line-height: 1.5; }
+  .upload-zone strong { color: var(--ochre); font-weight: 500; }
+  #fileInput { display: none; }
+
+  /* preset buttons */
+  .section-label {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--warm-gray);
+    margin-bottom: .55rem;
+  }
+
+  .preset-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .5rem;
+  }
+  .preset-btn {
+    padding: .55rem .4rem;
+    font-size: .72rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    border: 1.5px solid var(--cream);
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    color: var(--ink);
+    transition: all .18s;
+    text-align: center;
+  }
+  .preset-btn:hover { border-color: var(--ochre); color: var(--ochre); }
+  .preset-btn.active { background: var(--ochre); color: white; border-color: var(--ochre); }
+
+  /* sliders */
+  .sliders { display: flex; flex-direction: column; gap: 1rem; }
+
+  .slider-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: .75rem;
+    margin-bottom: .35rem;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .slider-group label span { color: var(--ochre); font-weight: 400; }
+
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--cream);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--ochre);
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  }
+
+  .hint {
+    font-size: .72rem;
+    color: var(--warm-gray);
+    line-height: 1.6;
+    border-left: 2px solid var(--ochre);
+    padding-left: .7rem;
+  }
+
+  /* action btns */
+  .actions { display: flex; flex-direction: column; gap: .6rem; margin-top: auto; }
+
+  .btn-primary, .btn-ghost {
+    width: 100%;
+    padding: .7rem;
+    border-radius: 5px;
+    font-size: .82rem;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all .18s;
+    border: none;
+  }
+  .btn-primary { background: var(--ink); color: white; }
+  .btn-primary:hover { background: var(--sienna); }
+  .btn-ghost { background: transparent; border: 1.5px solid var(--warm-gray); color: var(--warm-gray); }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* ── Canvas Area ── */
+  .canvas-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    gap: 1.2rem;
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 70% 30%, rgba(196,132,60,.04) 0%, transparent 60%),
+      var(--paper);
+  }
+
+  .canvas-wrap {
+    position: relative;
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .canvas-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .5rem;
+  }
+  .canvas-box-label {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--warm-gray);
+  }
+
+  canvas {
+    max-width: min(420px, 45vw);
+    max-height: 65vh;
+    border-radius: 3px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.12);
+    display: block;
+  }
+
+  .empty-state {
+    text-align: center;
+    max-width: 300px;
+  }
+  .empty-state svg { opacity: .18; margin-bottom: 1rem; }
+  .empty-state h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    margin-bottom: .5rem;
+    color: var(--ink);
+  }
+  .empty-state p { font-size: .82rem; color: var(--warm-gray); line-height: 1.7; }
+
+  .processing-msg {
+    font-size: .8rem;
+    color: var(--ochre);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+  #compareSlider {
+    display: none;
+    align-items: center;
+    gap: .7rem;
+    font-size: .75rem;
+    color: var(--warm-gray);
+  }
+  #compareSlider.visible { display: flex; }
+  #compareSlider input { width: 120px; }
+
+  .intensity-badge {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    background: rgba(26,20,16,.75);
+    color: white;
+    font-size: .7rem;
+    padding: .3rem .6rem;
+    border-radius: 3px;
+    letter-spacing: .05em;
+    backdrop-filter: blur(4px);
+    display: none;
+  }
+  .intensity-badge.visible { display: block; }
 </style>
 </head>
 <body>
 
-<h2>📸 ระบบเก็บภาพใบหน้า</h2>
+<header>
+  <h1>Portrait Painter</h1>
+  <span>แปลงภาพเป็นสไตล์ภาพวาด</span>
+</header>
 
-<input id="username" type="text" placeholder="ชื่อผู้ถูกถ่าย" />
-<button id="startBtn">เริ่มถ่าย</button>
+<main>
+  <!-- ── Sidebar ── -->
+  <aside>
+    <div>
+      <div class="section-label">โหลดภาพ</div>
+      <div class="upload-zone" id="dropZone">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <path d="M21 15l-5-5L5 21"/>
+        </svg>
+        <p>ลากวางภาพที่นี่<br>หรือ <strong>คลิกเพื่อเลือก</strong></p>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+    </div>
 
-<div id="step"></div>
-<video id="video" autoplay playsinline></video>
-<div id="progress"></div>
+    <div>
+      <div class="section-label">สไตล์ด่วน</div>
+      <div class="preset-row">
+        <button class="preset-btn active" data-preset="soft">Soft Paint</button>
+        <button class="preset-btn" data-preset="oil">Oil Portrait</button>
+        <button class="preset-btn" data-preset="sketch">Pencil Sketch</button>
+        <button class="preset-btn" data-preset="watercolor">Watercolor</button>
+      </div>
+    </div>
 
-<!-- ✅ รุ่น Mediapipe ที่ถูกต้อง -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <div>
+      <div class="section-label">ปรับเอง</div>
+      <div class="sliders">
+        <div class="slider-group">
+          <label>ความนุ่มของพู่กัน <span id="smoothVal">35</span></label>
+          <input type="range" id="smooth" min="0" max="100" value="35">
+        </div>
+        <div class="slider-group">
+          <label>ขอบเส้นวาด <span id="edgeVal">40</span></label>
+          <input type="range" id="edge" min="0" max="100" value="40">
+        </div>
+        <div class="slider-group">
+          <label>ความอิ่มสี <span id="satVal">20</span></label>
+          <input type="range" id="sat" min="-50" max="80" value="20">
+        </div>
+        <div class="slider-group">
+          <label>ความอบอุ่น <span id="warmVal">15</span></label>
+          <input type="range" id="warm" min="-50" max="50" value="15">
+        </div>
+        <div class="slider-group">
+          <label>texture ผ้าใบ <span id="texVal">30</span></label>
+          <input type="range" id="tex" min="0" max="100" value="30">
+        </div>
+        <div class="slider-group">
+          <label>ความสมจริง <span id="realVal">65</span></label>
+          <input type="range" id="real" min="0" max="100" value="65">
+        </div>
+      </div>
+    </div>
 
-<script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    <div class="hint">
+      ตั้ง "ความสมจริง" สูงๆ เพื่อให้ใบหน้ายังคงรายละเอียด — ระบบจะผสม layer จริงกับ layer วาด
+    </div>
 
-const supabase = createClient(
-  "https://avhgcaymtekqopsrkntx.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2aGdjYXltdGVrcW9wc3JrbnR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyODk1NzgsImV4cCI6MjA3Nzg2NTU3OH0.oH1dILXQ_P4rvpA6x74wtv3TsO9yLxZLcBigOAzRD3s"
-);
+    <div class="actions">
+      <button class="btn-primary" id="applyBtn" disabled>✦ ประมวลผล</button>
+      <button class="btn-ghost" id="downloadBtn" disabled>↓ ดาวน์โหลด</button>
+      <button class="btn-ghost" id="resetBtn">× รีเซ็ต</button>
+    </div>
+  </aside>
 
-await supabase.auth.signInAnonymously();
+  <!-- ── Canvas Area ── -->
+  <section class="canvas-area">
+    <div class="empty-state" id="emptyState">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+        <path d="M12 8v4m0 4h.01"/>
+        <circle cx="9" cy="9" r="1.5" fill="currentColor"/>
+        <circle cx="15" cy="9" r="1.5" fill="currentColor"/>
+        <path d="M9 15s1 2 3 2 3-2 3-2"/>
+      </svg>
+      <h2>โหลดภาพก่อนเริ่ม</h2>
+      <p>รองรับ JPG, PNG, WebP — แนะนำภาพหน้าคน ระบบจะรักษาลักษณะใบหน้าไว้และเพิ่มลายเส้นพู่กันรอบๆ</p>
+    </div>
 
-const video = document.getElementById("video");
-const detector = new faceDetection.FaceDetection({
-  model: "short",
-  minDetectionConfidence: 0.7
+    <div class="canvas-wrap" id="canvasWrap" style="display:none">
+      <div class="canvas-box">
+        <div class="canvas-box-label">ต้นฉบับ</div>
+        <canvas id="srcCanvas"></canvas>
+      </div>
+      <div class="canvas-box" style="position:relative">
+        <div class="canvas-box-label">ผลลัพธ์</div>
+        <canvas id="outCanvas"></canvas>
+        <div class="intensity-badge" id="badge">กำลังประมวลผล…</div>
+      </div>
+    </div>
+
+    <p class="processing-msg" id="procMsg" style="display:none">กำลังสร้างเอฟเฟกต์…</p>
+
+    <div id="compareSlider">
+      <span>ต้นฉบับ</span>
+      <input type="range" id="blendSlider" min="0" max="100" value="0">
+      <span>ผลลัพธ์</span>
+    </div>
+  </section>
+</main>
+
+<script>
+// ── State ──
+let origImg = null;
+let origImageData = null;
+
+const fileInput   = document.getElementById('fileInput');
+const dropZone    = document.getElementById('dropZone');
+const applyBtn    = document.getElementById('applyBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const resetBtn    = document.getElementById('resetBtn');
+const srcCanvas   = document.getElementById('srcCanvas');
+const outCanvas   = document.getElementById('outCanvas');
+const srcCtx      = srcCanvas.getContext('2d', {willReadFrequently: true});
+const outCtx      = outCanvas.getContext('2d', {willReadFrequently: true});
+const emptyState  = document.getElementById('emptyState');
+const canvasWrap  = document.getElementById('canvasWrap');
+const procMsg     = document.getElementById('procMsg');
+const badge       = document.getElementById('badge');
+const compareSlider = document.getElementById('compareSlider');
+const blendSlider = document.getElementById('blendSlider');
+
+// Slider display
+['smooth','edge','sat','warm','tex','real'].forEach(id => {
+  const el = document.getElementById(id);
+  const display = document.getElementById(id+'Val');
+  el.addEventListener('input', () => { display.textContent = el.value; });
 });
 
-const camera = new Camera(video, {
-  onFrame: async () => { await detector.send({image: video}); },
-  width: 320, height: 240
+// ── Presets ──
+const presets = {
+  soft:      { smooth:35, edge:40, sat:20, warm:15, tex:30, real:65 },
+  oil:       { smooth:55, edge:70, sat:45, warm:25, tex:55, real:50 },
+  sketch:    { smooth:15, edge:90, sat:-30, warm:0,  tex:20, real:70 },
+  watercolor:{ smooth:60, edge:30, sat:35, warm:10, tex:45, real:55 },
+};
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const p = presets[btn.dataset.preset];
+    Object.entries(p).forEach(([k,v]) => {
+      document.getElementById(k).value = v;
+      document.getElementById(k+'Val').textContent = v;
+    });
+  });
 });
-camera.start();
 
-const steps = ["ซ้าย", "ขวา", "เงยหน้า", "หน้าตรง"];
-let stepIndex = 0, count = 0;
+// ── File load ──
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => loadFile(e.target.files[0]));
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.background='rgba(196,132,60,.12)'; });
+dropZone.addEventListener('dragleave', () => { dropZone.style.background=''; });
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.style.background='';
+  loadFile(e.dataTransfer.files[0]);
+});
 
-async function upload(name, idx, blob){
-  await supabase.storage.from("face_dataset").upload(`${name}/${idx}.jpg`, blob, { upsert: true });
+function loadFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    origImg = img;
+    const MAX = 900;
+    let w = img.width, h = img.height;
+    if (w > MAX || h > MAX) {
+      const r = Math.min(MAX/w, MAX/h);
+      w = Math.round(w*r); h = Math.round(h*r);
+    }
+    srcCanvas.width  = outCanvas.width  = w;
+    srcCanvas.height = outCanvas.height = h;
+    srcCtx.drawImage(img, 0, 0, w, h);
+    outCtx.drawImage(img, 0, 0, w, h);
+    origImageData = srcCtx.getImageData(0, 0, w, h);
+    emptyState.style.display = 'none';
+    canvasWrap.style.display = 'flex';
+    applyBtn.disabled = false;
+    downloadBtn.disabled = true;
+    compareSlider.classList.remove('visible');
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
 }
 
-async function startCapture(){
-  const name = username.value.trim();
-  if(!name) return alert("กรอกชื่อก่อน");
+// ── Core Processing ──
+applyBtn.addEventListener('click', async () => {
+  if (!origImg) return;
+  applyBtn.disabled = true;
+  procMsg.style.display = 'block';
+  badge.classList.add('visible');
+  badge.textContent = 'กำลังประมวลผล…';
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  processImage();
+  procMsg.style.display = 'none';
+  badge.classList.remove('visible');
+  applyBtn.disabled = false;
+  downloadBtn.disabled = false;
+  compareSlider.classList.add('visible');
+});
 
-  alert("เริ่มถ่ายแล้ว");
-  const total = 100;
-
-  const timer = setInterval(()=>{
-    document.getElementById("step").innerText = `หันหน้า: ${steps[stepIndex]}`;
-    document.getElementById("progress").innerText = `${count+1}/100`;
-
-    const r = detector.getDetections();
-    if(r?.detections){
-      const b = r.detections[0].locationData.relativeBoundingBox;
-      const w = video.videoWidth, h = video.videoHeight;
-      const x = b.xmin*w, y=b.ymin*h, bw=b.width*w, bh=b.height*h;
-
-      const c = document.createElement("canvas");
-      c.width = 160; c.height = 160;
-      c.getContext("2d").drawImage(video,x,y,bw,bh,0,0,160,160);
-      c.toBlob(blob=>upload(name,count+1,blob),"image/jpeg",0.9);
-    }
-
-    count++;
-    if(count % 25 === 0) stepIndex++;
-    if(count >= total){
-      clearInterval(timer);
-      alert("✅ เสร็จสิ้น");
-    }
-  }, 500);
+function getParams() {
+  return {
+    smooth: +document.getElementById('smooth').value / 100,
+    edge:   +document.getElementById('edge').value / 100,
+    sat:    +document.getElementById('sat').value,
+    warm:   +document.getElementById('warm').value,
+    tex:    +document.getElementById('tex').value / 100,
+    real:   +document.getElementById('real').value / 100,
+  };
 }
 
-document.getElementById("startBtn").addEventListener("click", startCapture);
+function processImage() {
+  const { smooth, edge, sat, warm, tex, real } = getParams();
+  const W = srcCanvas.width, H = srcCanvas.height;
+
+  // Step 1: get original pixels
+  const src = srcCtx.getImageData(0, 0, W, H);
+  const pixels = new Uint8ClampedArray(src.data);
+
+  // Step 2: bilateral-like smoothing (simplified box blur × passes)
+  const blurred = boxBlur(pixels, W, H, Math.round(smooth * 8));
+
+  // Step 3: edge detection (Sobel)
+  const edges = sobelEdges(blurred, W, H);
+
+  // Step 4: saturation + warm shift on blurred
+  const painted = colorGrade(blurred, W, H, sat, warm);
+
+  // Step 5: canvas texture
+  const textured = applyTexture(painted, W, H, tex);
+
+  // Step 6: overlay edges
+  const withEdges = overlayEdges(textured, edges, W, H, edge);
+
+  // Step 7: blend with original (realism)
+  const result = blendWithOriginal(withEdges, pixels, W, H, real);
+
+  // Step 8: final micro-contrast boost
+  const final = clarityBoost(result, W, H, 0.3);
+
+  const outData = new ImageData(new Uint8ClampedArray(final), W, H);
+  outCtx.putImageData(outData, 0, 0);
+
+  // save for compare slider
+  outCanvas._painted = new Uint8ClampedArray(final);
+}
+
+// ── DSP helpers ──
+function boxBlur(src, W, H, r) {
+  if (r < 1) return src.slice();
+  let a = src.slice(), b = new Uint8ClampedArray(a.length);
+  for (let pass = 0; pass < 2; pass++) {
+    // horizontal
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let rs=0,gs=0,bs=0,count=0;
+        for (let dx = -r; dx <= r; dx++) {
+          const xi = Math.max(0, Math.min(W-1, x+dx));
+          const i = (y*W+xi)*4;
+          rs+=a[i]; gs+=a[i+1]; bs+=a[i+2]; count++;
+        }
+        const i = (y*W+x)*4;
+        b[i]=rs/count; b[i+1]=gs/count; b[i+2]=bs/count; b[i+3]=a[i+3];
+      }
+    }
+    // vertical
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let rs=0,gs=0,bs=0,count=0;
+        for (let dy = -r; dy <= r; dy++) {
+          const yi = Math.max(0, Math.min(H-1, y+dy));
+          const i = (yi*W+x)*4;
+          rs+=b[i]; gs+=b[i+1]; bs+=b[i+2]; count++;
+        }
+        const i = (y*W+x)*4;
+        a[i]=rs/count; a[i+1]=gs/count; a[i+2]=bs/count; a[i+3]=b[i+3];
+      }
+    }
+  }
+  return a;
+}
+
+function sobelEdges(src, W, H) {
+  const edges = new Float32Array(W*H);
+  for (let y = 1; y < H-1; y++) {
+    for (let x = 1; x < W-1; x++) {
+      const lum = (p, dx, dy) => {
+        const i = ((y+dy)*W+(x+dx))*4;
+        return 0.299*p[i]+0.587*p[i+1]+0.114*p[i+2];
+      };
+      const gx =  -lum(src,-1,-1) - 2*lum(src,0,-1) - lum(src,1,-1)
+                  +lum(src,-1, 1) + 2*lum(src,0, 1) + lum(src,1, 1);
+      const gy =  -lum(src,-1,-1) - 2*lum(src,-1,0) - lum(src,-1,1)
+                  +lum(src, 1,-1) + 2*lum(src, 1,0) + lum(src, 1,1);
+      edges[y*W+x] = Math.min(255, Math.sqrt(gx*gx+gy*gy));
+    }
+  }
+  return edges;
+}
+
+function colorGrade(src, W, H, sat, warm) {
+  const out = src.slice();
+  for (let i = 0; i < W*H*4; i+=4) {
+    let r=src[i], g=src[i+1], b=src[i+2];
+    // warm shift
+    r = Math.min(255, r + warm*1.2);
+    b = Math.max(0,   b - warm*0.6);
+    // saturation
+    const gray = 0.299*r+0.587*g+0.114*b;
+    const f = (100+sat)/100;
+    r = Math.min(255, Math.max(0, gray + f*(r-gray)));
+    g = Math.min(255, Math.max(0, gray + f*(g-gray)));
+    b = Math.min(255, Math.max(0, gray + f*(b-gray)));
+    out[i]=r; out[i+1]=g; out[i+2]=b;
+  }
+  return out;
+}
+
+function applyTexture(src, W, H, amount) {
+  if (amount < 0.01) return src.slice();
+  const out = src.slice();
+  // Perlin-like linen texture via trig noise
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const n = (
+        Math.sin(x * 0.7 + y * 0.3) * 0.4 +
+        Math.sin(x * 1.3 - y * 0.8) * 0.3 +
+        Math.sin(x * 0.2 + y * 1.1) * 0.3
+      );
+      const tex = n * amount * 18; // ±18 at full
+      const i = (y*W+x)*4;
+      out[i]   = Math.min(255, Math.max(0, src[i]   + tex));
+      out[i+1] = Math.min(255, Math.max(0, src[i+1] + tex * 0.9));
+      out[i+2] = Math.min(255, Math.max(0, src[i+2] + tex * 0.8));
+    }
+  }
+  return out;
+}
+
+function overlayEdges(src, edges, W, H, amount) {
+  if (amount < 0.01) return src.slice();
+  const out = src.slice();
+  for (let i = 0; i < W*H; i++) {
+    const e = Math.min(1, edges[i] / 180) * amount;
+    const idx = i*4;
+    // darken edges → sketch line feel
+    out[idx]   = Math.max(0, src[idx]   - e * 80);
+    out[idx+1] = Math.max(0, src[idx+1] - e * 80);
+    out[idx+2] = Math.max(0, src[idx+2] - e * 80);
+  }
+  return out;
+}
+
+function blendWithOriginal(painted, orig, W, H, realAmount) {
+  // realAmount 1 = fully original, 0 = fully painted
+  // We keep painted but blend back orig to preserve face details
+  const out = new Uint8ClampedArray(painted.length);
+  for (let i = 0; i < W*H*4; i++) {
+    out[i] = painted[i] * (1-realAmount) + orig[i] * realAmount;
+  }
+  return out;
+}
+
+function clarityBoost(src, W, H, amount) {
+  // unsharp mask (high-pass)
+  const blurred = boxBlur(src, W, H, 2);
+  const out = src.slice();
+  for (let i = 0; i < W*H*4; i+=4) {
+    for (let c = 0; c < 3; c++) {
+      const hp = src[i+c] - blurred[i+c];
+      out[i+c] = Math.min(255, Math.max(0, src[i+c] + hp * amount));
+    }
+    out[i+3] = src[i+3];
+  }
+  return out;
+}
+
+// ── Compare Slider ──
+blendSlider.addEventListener('input', () => {
+  const v = blendSlider.value / 100;
+  if (!outCanvas._painted || !origImageData) return;
+  const W = outCanvas.width, H = outCanvas.height;
+  const mixed = new Uint8ClampedArray(W*H*4);
+  const orig = origImageData.data;
+  const painted = outCanvas._painted;
+  for (let i = 0; i < W*H*4; i++) {
+    mixed[i] = painted[i] * v + orig[i] * (1-v);
+  }
+  outCtx.putImageData(new ImageData(mixed, W, H), 0, 0);
+});
+
+// ── Download ──
+downloadBtn.addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'portrait-painted.png';
+  link.href = outCanvas.toDataURL('image/png');
+  link.click();
+});
+
+// ── Reset ──
+resetBtn.addEventListener('click', () => {
+  fileInput.value = '';
+  origImg = null; origImageData = null;
+  emptyState.style.display = 'block';
+  canvasWrap.style.display = 'none';
+  procMsg.style.display = 'none';
+  badge.classList.remove('visible');
+  compareSlider.classList.remove('visible');
+  applyBtn.disabled = true;
+  downloadBtn.disabled = true;
+  // reset sliders to soft preset
+  const p = presets.soft;
+  Object.entries(p).forEach(([k,v]) => {
+    document.getElementById(k).value = v;
+    document.getElementById(k+'Val').textContent = v;
+  });
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-preset=soft]').classList.add('active');
+});
 </script>
-
 </body>
 </html>
